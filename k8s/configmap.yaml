@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: catalog-api-config
+  namespace: fcg
+data:
+  ASPNETCORE_URLS: http://+:8080
+  RabbitMq__Host: rabbitmq
+  RabbitMq__PaymentQueue: catalog-payment-results
+  Jwt__Issuer: FCG
+  Jwt__Audience: FCG
