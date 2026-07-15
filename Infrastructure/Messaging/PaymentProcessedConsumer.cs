@@ -1,6 +1,7 @@
 using CatalogAPI.Application.Catalog;
 using CatalogAPI.Contracts;
 using MassTransit;
+using MediatR;
 
 namespace CatalogAPI.Infrastructure.Messaging;
 

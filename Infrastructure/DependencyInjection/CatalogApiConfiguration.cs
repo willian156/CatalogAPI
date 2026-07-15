@@ -4,6 +4,7 @@ using CatalogAPI.Domain.Catalog;
 using CatalogAPI.Infrastructure.Messaging;
 using CatalogAPI.Infrastructure.Persistence;
 using MassTransit;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
