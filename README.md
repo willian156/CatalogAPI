@@ -20,6 +20,7 @@ dotnet run --project CatalogAPI.sln
 - `Jwt__Issuer`
 - `Jwt__Audience`
 - `Jwt__Key`
+- `ConnectionStrings__Database` (PostgreSQL exclusivo do serviço)
 
 ## Docker
 
