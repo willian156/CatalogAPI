@@ -1,5 +1,4 @@
 using System.Text;
-using CatalogAPI.Application.Abstractions;
 using CatalogAPI.Application.Catalog;
 using CatalogAPI.Domain.Catalog;
 using CatalogAPI.Infrastructure.Messaging;
@@ -44,16 +43,9 @@ public static class CatalogApiConfiguration
 
     private static void AddCatalogApplication(this IServiceCollection services)
     {
-        services.AddScoped<ICommandHandler<CreateGameCommand, GameDto>, CreateGameHandler>();
-        services.AddScoped<ICommandHandler<UpdateGameCommand, GameDto?>, UpdateGameHandler>();
-        services.AddScoped<ICommandHandler<DeleteGameCommand, bool>, DeleteGameHandler>();
-        services.AddScoped<ICommandHandler<PlacePurchaseCommand, PurchaseDto?>, PlacePurchaseHandler>();
-        services.AddScoped<ICommandHandler<ProcessPaymentCommand, bool>, ProcessPaymentHandler>();
-        services.AddScoped<IQueryHandler<GetGameQuery, GameDto?>, GetGameHandler>();
-        services.AddScoped<IQueryHandler<ListGamesQuery, IReadOnlyList<GameDto>>, ListGamesHandler>();
-        services.AddScoped<IQueryHandler<GetPurchaseQuery, PurchaseDto?>, GetPurchaseHandler>();
-        services.AddScoped<IQueryHandler<ListPurchasesQuery, IReadOnlyList<PurchaseDto>>, ListPurchasesHandler>();
-        services.AddScoped<IQueryHandler<GetLibraryQuery, IReadOnlyList<GameDto>>, GetLibraryHandler>();
+        services.AddMediatR(configuration =>
+            configuration.RegisterServicesFromAssemblyContaining<CreateGameCommand>()
+        );
     }
 
     private static void AddCatalogPersistence(this IServiceCollection services, IConfiguration configuration)

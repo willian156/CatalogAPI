@@ -1,54 +1,53 @@
-using CatalogAPI.Application.Abstractions;
 using CatalogAPI.Contracts;
 using CatalogAPI.Domain.Catalog;
 using MassTransit;
 
 namespace CatalogAPI.Application.Catalog;
 
-public class CreateGameCommand : ICommand<GameDto>
+public class CreateGameCommand : IRequest<GameDto>
 {
     public GameWriteDto Data { get; set; } = new();
 }
 
-public class UpdateGameCommand : ICommand<GameDto?>
+public class UpdateGameCommand : IRequest<GameDto?>
 {
     public Guid Id { get; set; }
     public GameWriteDto Data { get; set; } = new();
 }
 
-public class DeleteGameCommand : ICommand<bool>
+public class DeleteGameCommand : IRequest<bool>
 {
     public Guid Id { get; set; }
 }
 
-public class PlacePurchaseCommand : ICommand<PurchaseDto?>
+public class PlacePurchaseCommand : IRequest<PurchaseDto?>
 {
     public PlacePurchaseDto Data { get; set; } = new();
 }
 
-public class ProcessPaymentCommand : ICommand<bool>
+public class ProcessPaymentCommand : IRequest<bool>
 {
     public PaymentProcessedEvent Event { get; set; } = new();
 }
 
-public class GetGameQuery : IQuery<GameDto?>
+public class GetGameQuery : IRequest<GameDto?>
 {
     public Guid Id { get; set; }
 }
 
-public class ListGamesQuery : IQuery<IReadOnlyList<GameDto>> { }
+public class ListGamesQuery : IRequest<IReadOnlyList<GameDto>> { }
 
-public class GetPurchaseQuery : IQuery<PurchaseDto?>
+public class GetPurchaseQuery : IRequest<PurchaseDto?>
 {
     public Guid Id { get; set; }
 }
 
-public class ListPurchasesQuery : IQuery<IReadOnlyList<PurchaseDto>>
+public class ListPurchasesQuery : IRequest<IReadOnlyList<PurchaseDto>>
 {
     public Guid UserId { get; set; }
 }
 
-public class GetLibraryQuery : IQuery<IReadOnlyList<GameDto>>
+public class GetLibraryQuery : IRequest<IReadOnlyList<GameDto>>
 {
     public Guid UserId { get; set; }
 }
@@ -80,7 +79,7 @@ public static class Mapping
         };
 }
 
-public class CreateGameHandler(IGameRepository r) : ICommandHandler<CreateGameCommand, GameDto>
+public class CreateGameHandler(IGameRepository r) : IRequestHandler<CreateGameCommand, GameDto>
 {
     public async Task<GameDto> Handle(CreateGameCommand c, CancellationToken ct)
     {
@@ -92,7 +91,7 @@ public class CreateGameHandler(IGameRepository r) : ICommandHandler<CreateGameCo
     }
 }
 
-public class UpdateGameHandler(IGameRepository r) : ICommandHandler<UpdateGameCommand, GameDto?>
+public class UpdateGameHandler(IGameRepository r) : IRequestHandler<UpdateGameCommand, GameDto?>
 {
     public async Task<GameDto?> Handle(UpdateGameCommand c, CancellationToken ct)
     {
@@ -106,7 +105,7 @@ public class UpdateGameHandler(IGameRepository r) : ICommandHandler<UpdateGameCo
     }
 }
 
-public class DeleteGameHandler(IGameRepository r) : ICommandHandler<DeleteGameCommand, bool>
+public class DeleteGameHandler(IGameRepository r) : IRequestHandler<DeleteGameCommand, bool>
 {
     public async Task<bool> Handle(DeleteGameCommand c, CancellationToken ct)
     {
@@ -123,7 +122,7 @@ public class PlacePurchaseHandler(
     IGameRepository games,
     IPurchaseRepository purchases,
     IPublishEndpoint bus
-) : ICommandHandler<PlacePurchaseCommand, PurchaseDto?>
+) : IRequestHandler<PlacePurchaseCommand, PurchaseDto?>
 {
     public async Task<PurchaseDto?> Handle(PlacePurchaseCommand c, CancellationToken ct)
     {
@@ -149,7 +148,7 @@ public class PlacePurchaseHandler(
 }
 
 public class ProcessPaymentHandler(IPurchaseRepository r)
-    : ICommandHandler<ProcessPaymentCommand, bool>
+    : IRequestHandler<ProcessPaymentCommand, bool>
 {
     public async Task<bool> Handle(ProcessPaymentCommand c, CancellationToken ct)
     {
@@ -168,7 +167,7 @@ public class ProcessPaymentHandler(IPurchaseRepository r)
     }
 }
 
-public class GetGameHandler(IGameRepository r) : IQueryHandler<GetGameQuery, GameDto?>
+public class GetGameHandler(IGameRepository r) : IRequestHandler<GetGameQuery, GameDto?>
 {
     public async Task<GameDto?> Handle(GetGameQuery q, CancellationToken ct)
     {
@@ -178,14 +177,14 @@ public class GetGameHandler(IGameRepository r) : IQueryHandler<GetGameQuery, Gam
 }
 
 public class ListGamesHandler(IGameRepository r)
-    : IQueryHandler<ListGamesQuery, IReadOnlyList<GameDto>>
+    : IRequestHandler<ListGamesQuery, IReadOnlyList<GameDto>>
 {
     public async Task<IReadOnlyList<GameDto>> Handle(ListGamesQuery q, CancellationToken ct) =>
         (await r.ListAsync(ct)).Select(Mapping.ToDto).ToList();
 }
 
 public class GetPurchaseHandler(IPurchaseRepository r)
-    : IQueryHandler<GetPurchaseQuery, PurchaseDto?>
+    : IRequestHandler<GetPurchaseQuery, PurchaseDto?>
 {
     public async Task<PurchaseDto?> Handle(GetPurchaseQuery q, CancellationToken ct)
     {
@@ -195,7 +194,7 @@ public class GetPurchaseHandler(IPurchaseRepository r)
 }
 
 public class ListPurchasesHandler(IPurchaseRepository r)
-    : IQueryHandler<ListPurchasesQuery, IReadOnlyList<PurchaseDto>>
+    : IRequestHandler<ListPurchasesQuery, IReadOnlyList<PurchaseDto>>
 {
     public async Task<IReadOnlyList<PurchaseDto>> Handle(
         ListPurchasesQuery q,
@@ -204,7 +203,7 @@ public class ListPurchasesHandler(IPurchaseRepository r)
 }
 
 public class GetLibraryHandler(IPurchaseRepository r)
-    : IQueryHandler<GetLibraryQuery, IReadOnlyList<GameDto>>
+    : IRequestHandler<GetLibraryQuery, IReadOnlyList<GameDto>>
 {
     public async Task<IReadOnlyList<GameDto>> Handle(GetLibraryQuery q, CancellationToken ct) =>
         (await r.GetLibraryAsync(q.UserId, ct)).Select(Mapping.ToDto).ToList();

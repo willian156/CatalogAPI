@@ -1,15 +1,14 @@
-using CatalogAPI.Application.Abstractions;
 using CatalogAPI.Application.Catalog;
 using CatalogAPI.Contracts;
 using MassTransit;
 
 namespace CatalogAPI.Infrastructure.Messaging;
 
-public class PaymentProcessedConsumer(ICommandHandler<ProcessPaymentCommand, bool> handler)
+public class PaymentProcessedConsumer(ISender sender)
     : IConsumer<PaymentProcessedEvent>
 {
     public async Task Consume(ConsumeContext<PaymentProcessedEvent> context) =>
-        await handler.Handle(
+        await sender.Send(
             new ProcessPaymentCommand { Event = context.Message },
             context.CancellationToken
         );
