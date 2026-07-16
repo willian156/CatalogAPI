@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: catalog-api
-          image: fcg/catalog-api:latest
+          image: fcg/catalog-api:cors-v1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -23,7 +23,13 @@ spec:
             - configMapRef:
                 name: catalog-api-config
             - secretRef:
-                name: catalog-api-secrets
+                name: fcg-secrets
+          env:
+            - name: ConnectionStrings__Database
+              valueFrom:
+                secretKeyRef:
+                  name: fcg-secrets
+                  key: CatalogDatabase
           readinessProbe:
             httpGet:
               path: /health
