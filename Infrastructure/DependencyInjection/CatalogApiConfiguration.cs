@@ -9,6 +9,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using MongoDB.Driver;
+using Prometheus;
+using CatalogAPI.Infrastructure.Cache;
+using CatalogAPI.Infrastructure.Reviews;
+using CatalogAPI.Infrastructure.Search;
+using CatalogAPI.Application.Search;
+using Microsoft.Extensions.Options;
+using System.Net.Http.Headers;
 
 namespace CatalogAPI.Infrastructure.DependencyInjection;
 
@@ -18,6 +26,24 @@ public static class CatalogApiConfiguration
     {
         services.AddCatalogApplication();
         services.AddCatalogPersistence(configuration);
+        services.AddCatalogPerformance(configuration);
+        services.AddOptions<SearchOptions>().Bind(configuration.GetSection("Search"))
+            .ValidateDataAnnotations()
+            .Validate(options => string.IsNullOrEmpty(options.ApiKey) ||
+                Uri.TryCreate(options.Endpoint, UriKind.Absolute, out var endpoint) && endpoint.Scheme == Uri.UriSchemeHttps,
+                "Search:ApiKey exige um endpoint HTTPS.")
+            .ValidateOnStart();
+        services.AddHttpClient<ElasticsearchGameSearch>((provider, client) =>
+        {
+            var options = provider.GetRequiredService<IOptions<SearchOptions>>().Value;
+            client.BaseAddress = new Uri(options.Endpoint.TrimEnd('/') + "/");
+            client.Timeout = TimeSpan.FromSeconds(5);
+            if (!string.IsNullOrWhiteSpace(options.ApiKey))
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("ApiKey", options.ApiKey);
+        });
+        services.AddTransient<IGameSearch>(provider => provider.GetRequiredService<ElasticsearchGameSearch>());
+        services.AddHostedService<SearchIndexWorker>();
+        services.AddScoped<IReindexGames, ReindexGames>();
         services.AddCatalogMessaging(configuration);
         services.AddCatalogAuthentication(configuration);
         services.AddApiCors(configuration);
@@ -32,9 +58,11 @@ public static class CatalogApiConfiguration
         app.UseSwagger();
         app.UseSwaggerUI();
         app.UseCors("Frontend");
+        app.UseHttpMetrics(options => options.ReduceStatusCodeCardinality());
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapControllers();
+        app.MapMetrics();
         return app;
     }
 
@@ -51,7 +79,12 @@ public static class CatalogApiConfiguration
     public static async Task InitializeCatalogDatabaseAsync(this WebApplication app)
     {
         using var scope = app.Services.CreateScope();
-        await scope.ServiceProvider.GetRequiredService<CatalogDbContext>().Database.EnsureCreatedAsync();
+        var database = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+        await DatabaseInitialization.RunAsync(database, async () =>
+        {
+            await database.Database.EnsureCreatedAsync();
+            await SearchSchema.InitializeAsync(database);
+        });
     }
 
     private static void AddCatalogApplication(this IServiceCollection services)
@@ -68,6 +101,18 @@ public static class CatalogApiConfiguration
         );
         services.AddScoped<IGameRepository, GameRepository>();
         services.AddScoped<IPurchaseRepository, PurchaseRepository>();
+    }
+
+    private static void AddCatalogPerformance(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddStackExchangeRedisCache(options =>
+            options.Configuration = configuration.GetConnectionString("Redis") ?? "localhost:6379");
+        services.AddSingleton<RedisGameCache>();
+        services.AddSingleton<IGameCache, ResilientGameCache>();
+
+        services.AddSingleton<IMongoClient>(_ => new MongoClient(
+            configuration.GetConnectionString("MongoDb") ?? "mongodb://localhost:27017"));
+        services.AddSingleton<IGameReviewRepository, MongoGameReviewRepository>();
     }
 
     private static void AddCatalogMessaging(this IServiceCollection services, IConfiguration configuration)
@@ -88,7 +133,9 @@ public static class CatalogApiConfiguration
 
     private static void AddCatalogAuthentication(this IServiceCollection services, IConfiguration configuration)
     {
-        var key = configuration["Jwt:Key"] ?? "change-this-development-key-with-32-chars";
+        var key = configuration["Jwt:Key"] ?? string.Empty;
+        if (Encoding.UTF8.GetByteCount(key) < 32)
+            throw new InvalidOperationException("Configure Jwt:Key com pelo menos 32 bytes por um provedor de segredos.");
         services
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
@@ -110,8 +157,8 @@ public static class CatalogApiConfiguration
     {
         rabbit.Host(configuration["RabbitMq:Host"] ?? "localhost", "/", host =>
         {
-            host.Username(configuration["RabbitMq:Username"] ?? "guest");
-            host.Password(configuration["RabbitMq:Password"] ?? "guest");
+            host.Username(configuration["RabbitMq:Username"] ?? throw new InvalidOperationException("Configure RabbitMq:Username."));
+            host.Password(configuration["RabbitMq:Password"] ?? throw new InvalidOperationException("Configure RabbitMq:Password."));
         });
     }
 

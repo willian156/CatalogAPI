@@ -1,11 +1,16 @@
-using CatalogAPI.Contracts;
 using CatalogAPI.Domain.Catalog;
-using MassTransit;
 using MediatR;
 
 namespace CatalogAPI.Application.Catalog;
 
-public class ListGamesHandler(IGameRepository r) : IRequestHandler<ListGamesQuery, IReadOnlyList<GameDto>>
+public class ListGamesHandler(IGameRepository repository, IGameCache cache) : IRequestHandler<ListGamesQuery, IReadOnlyList<GameDto>>
 {
-    public async Task<IReadOnlyList<GameDto>> Handle(ListGamesQuery q, CancellationToken ct) => (await r.ListAsync(ct)).Select(Mapping.ToDto).ToList();
+    public async Task<IReadOnlyList<GameDto>> Handle(ListGamesQuery query, CancellationToken cancellationToken)
+    {
+        var cached = await cache.GetListAsync(cancellationToken);
+        if (cached is not null) return cached;
+        var games = (await repository.ListAsync(cancellationToken)).Select(Mapping.ToDto).ToList();
+        await cache.SetListAsync(games, cancellationToken);
+        return games;
+    }
 }

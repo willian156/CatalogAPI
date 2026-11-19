@@ -1,20 +1,21 @@
-using CatalogAPI.Contracts;
 using CatalogAPI.Domain.Catalog;
-using MassTransit;
 using MediatR;
 
 namespace CatalogAPI.Application.Catalog;
 
-public class UpdateGameHandler(IGameRepository r) : IRequestHandler<UpdateGameCommand, GameDto?>
+public class UpdateGameHandler(IGameRepository repository, IGameCache cache) : IRequestHandler<UpdateGameCommand, GameDto?>
 {
-    public async Task<GameDto?> Handle(UpdateGameCommand c, CancellationToken ct)
+    public async Task<GameDto?> Handle(UpdateGameCommand command, CancellationToken cancellationToken)
     {
-        var x = await r.GetAsync(c.Id, ct);
-        if (x is null)
+        var game = await repository.GetAsync(command.Id, cancellationToken);
+        if (game is null)
             return null;
-        var d = c.Data;
-        x.Update(d.Title, d.Description, d.Genre, d.Publisher, d.Price);
-        await r.SaveAsync(ct);
-        return Mapping.ToDto(x);
+        var data = command.Data;
+        game.Update(data.Title, data.Description, data.Genre, data.Publisher, data.Price);
+        await repository.SaveAsync(cancellationToken);
+        await cache.InvalidateAsync(game.Id, cancellationToken);
+        var dto = Mapping.ToDto(game);
+        await cache.SetAsync(dto, cancellationToken);
+        return dto;
     }
 }

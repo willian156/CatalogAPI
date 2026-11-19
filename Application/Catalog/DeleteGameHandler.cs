@@ -1,19 +1,18 @@
-using CatalogAPI.Contracts;
 using CatalogAPI.Domain.Catalog;
-using MassTransit;
 using MediatR;
 
 namespace CatalogAPI.Application.Catalog;
 
-public class DeleteGameHandler(IGameRepository r) : IRequestHandler<DeleteGameCommand, bool>
+public class DeleteGameHandler(IGameRepository repository, IGameCache cache) : IRequestHandler<DeleteGameCommand, bool>
 {
-    public async Task<bool> Handle(DeleteGameCommand c, CancellationToken ct)
+    public async Task<bool> Handle(DeleteGameCommand command, CancellationToken cancellationToken)
     {
-        var x = await r.GetAsync(c.Id, ct);
-        if (x is null)
+        var game = await repository.GetAsync(command.Id, cancellationToken);
+        if (game is null)
             return false;
-        r.Remove(x);
-        await r.SaveAsync(ct);
+        repository.Remove(game);
+        await repository.SaveAsync(cancellationToken);
+        await cache.InvalidateAsync(game.Id, cancellationToken);
         return true;
     }
 }
